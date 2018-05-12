@@ -383,7 +383,7 @@ public class Settings {
     }
   }
 
-  private final String Preference_Name = "ZSMTH_Config";
+  public static final String Preference_Name = "ZSMTH_Config";
 
   private SharedPreferences mPreference;
   private SharedPreferences.Editor mEditor;

@@ -28,5 +28,15 @@
       android:orderInCategory="5"
       android:title="@string/board_topic_action_favorite"
       app:showAsAction="never"/>
+  <item
+      android:id="@+id/board_topic_action_replyNum"
+      android:orderInCategory="6"
+      android:title="@string/board_topic_action_replyNum"
+      app:showAsAction="never"/>
+  <item
+      android:id="@+id/board_topic_action_startPage"
+      android:orderInCategory="7"
+      android:title="@string/board_topic_action_startPage"
+      app:showAsAction="never"/>
 
 </menu>

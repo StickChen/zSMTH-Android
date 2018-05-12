@@ -64,6 +64,8 @@
   <!--boardTopic的option menu-->
   <string name="board_topic_action_search">搜索</string>
   <string name="board_topic_action_favorite">收藏版面</string>
+  <string name="board_topic_action_replyNum">回复数</string>
+  <string name="board_topic_action_startPage">起始页</string>
   <string name="board_topic_action_sticky">显示/隐藏置顶</string>
   <string name="board_topic_action_refresh">刷新</string>
 

@@ -36,7 +36,7 @@ public abstract class EndlessRecyclerOnScrollListener extends RecyclerView.OnScr
     firstVisibleItem = mLinearLayoutManager.findFirstVisibleItemPosition();
 
     synchronized (this) {
-      if (!loading && (totalItemCount - visibleItemCount) <= (firstVisibleItem + visibleThreshold)) {
+      if (/*!loading &&*/ (totalItemCount - visibleItemCount) <= (firstVisibleItem + visibleThreshold)) {
         // End has been reached, Do something
         current_page++;
         onLoadMore(current_page);

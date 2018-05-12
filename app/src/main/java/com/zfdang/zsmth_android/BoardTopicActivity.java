@@ -1,6 +1,10 @@
 package com.zfdang.zsmth_android;
 
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.ActionBar;
@@ -8,11 +12,10 @@ import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.text.TextUtils;
 import android.util.Log;
-import android.view.Gravity;
-import android.view.KeyEvent;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.view.*;
+import android.widget.EditText;
 import android.widget.Toast;
 import com.jude.swipbackhelper.SwipeBackHelper;
 import com.zfdang.SMTHApplication;
@@ -25,16 +28,17 @@ import com.zfdang.zsmth_android.models.Topic;
 import com.zfdang.zsmth_android.models.TopicListContent;
 import com.zfdang.zsmth_android.newsmth.AjaxResponse;
 import com.zfdang.zsmth_android.newsmth.SMTHHelper;
-import io.reactivex.ObservableSource;
-import io.reactivex.annotations.NonNull;
-import io.reactivex.disposables.Disposable;
-import java.util.List;
-import okhttp3.ResponseBody;
 import io.reactivex.Observable;
+import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
+import okhttp3.ResponseBody;
+
+import java.util.List;
 
 /**
  * An activity representing a list of Topics. This activity
@@ -66,6 +70,8 @@ public class BoardTopicActivity extends SMTHBaseActivity
   private Settings mSetting;
 
   private boolean isSearchMode = false;
+  private String ReplyNum = "ReplyNum";
+  private String StartPage = "StartPage";
 
   @Override protected void onDestroy() {
     super.onDestroy();
@@ -124,7 +130,11 @@ public class BoardTopicActivity extends SMTHBaseActivity
     mScrollListener = new EndlessRecyclerOnScrollListener(linearLayoutManager) {
       @Override public void onLoadMore(int current_page) {
         // do something...
-        loadMoreItems();
+        mRecyclerView.post(new Runnable() {
+          public void run() {
+            loadMoreItems();
+          }
+        });
       }
     };
     mRecyclerView.addOnScrollListener(mScrollListener);
@@ -143,6 +153,9 @@ public class BoardTopicActivity extends SMTHBaseActivity
       mBoard = board;
       TopicListContent.clearBoardTopics();
       mCurrentPageNo = 1;
+      // 跳转设定页数
+      SharedPreferences preferences = SMTHApplication.getAppContext().getSharedPreferences(Settings.Preference_Name, Activity.MODE_PRIVATE);
+      mCurrentPageNo = preferences.getInt(mBoard.getBoardEngName() + "_" + StartPage, 1);
     }
 
     updateTitle();
@@ -209,8 +222,40 @@ public class BoardTopicActivity extends SMTHBaseActivity
 
             }
           });
+    } else if (id == R.id.board_topic_action_replyNum) {
+      // 回复数
+      showDialog("回复数", mBoard.getBoardEngName() + "_" + ReplyNum);
+    } else if (id == R.id.board_topic_action_startPage) {
+      // 起始页
+      showDialog("起始页", mBoard.getBoardEngName() + "_" + StartPage);
     }
     return super.onOptionsItemSelected(item);
+  }
+
+  private void showDialog(String title, final String key) {
+    AlertDialog.Builder alert = new AlertDialog.Builder(this).setTitle(title);
+    LayoutInflater inflater = this.getLayoutInflater();
+    final View view = inflater.inflate(R.layout.dialog_input, null);
+    final EditText input = (EditText) view.findViewById(R.id.edit_dialog_input);
+    final SharedPreferences preferences = SMTHApplication.getAppContext().getSharedPreferences(Settings.Preference_Name, Activity.MODE_PRIVATE);
+    int setNum = preferences.getInt(key, 0);
+    input.setText(setNum + "");
+    alert.setView(view);
+    alert.setPositiveButton("确认", new DialogInterface.OnClickListener() {
+      public void onClick(DialogInterface dialog, int whichButton) {
+        String inputTxt = input.getText().toString();
+        if (TextUtils.isEmpty(inputTxt)) {
+          return;
+        }
+        preferences.edit().putInt(key, Integer.valueOf(inputTxt)).apply();
+      }
+    });
+
+    alert.setNegativeButton("取消", new DialogInterface.OnClickListener() {
+      public void onClick(DialogInterface dialog, int whichButton) { }
+    });
+
+    alert.show();
   }
 
   @Override public boolean onCreateOptionsMenu(Menu menu) {
@@ -239,6 +284,7 @@ public class BoardTopicActivity extends SMTHBaseActivity
 
     mCurrentPageNo += 1;
     // Log.d(TAG, mCurrentPageNo + " page is loading now...");
+    Log.d(TAG, "loadMoreItems 加载更多页 " + mCurrentPageNo);
     LoadBoardTopics();
   }
 
@@ -276,6 +322,7 @@ public class BoardTopicActivity extends SMTHBaseActivity
         .flatMap(new Function<ResponseBody, ObservableSource<Topic>>() {
           @Override public ObservableSource<Topic> apply(@NonNull ResponseBody responseBody) throws Exception {
             try {
+              Log.d(TAG, "load page " + mCurrentPageNo);
               String response = responseBody.string();
               List<Topic> topics = SMTHHelper.ParseBoardTopicsFromWWW(response);
               return Observable.fromIterable(topics);
@@ -289,6 +336,7 @@ public class BoardTopicActivity extends SMTHBaseActivity
         .observeOn(AndroidSchedulers.mainThread())
         .subscribe(new Observer<Topic>() {
           @Override public void onSubscribe(@NonNull Disposable disposable) {
+            Log.d(TAG, "onSubscribe page " + mCurrentPageNo);
             Topic topic = new Topic(String.format("第%d页:", mCurrentPageNo));
             topic.isCategory = true;
             TopicListContent.addBoardTopic(topic, mBoard.getBoardEngName());
@@ -298,8 +346,16 @@ public class BoardTopicActivity extends SMTHBaseActivity
           @Override public void onNext(@NonNull Topic topic) {
             // Log.d(TAG, topic.toString());
             if (!topic.isSticky || mSetting.isShowSticky()) {
-              TopicListContent.addBoardTopic(topic, mBoard.getBoardEngName());
-              mRecyclerView.getAdapter().notifyItemInserted(TopicListContent.BOARD_TOPICS.size() - 1);
+              SharedPreferences preferences = SMTHApplication.getAppContext().getSharedPreferences(Settings.Preference_Name, Activity.MODE_PRIVATE);
+              int replyNum = preferences.getInt(mBoard.getBoardEngName() + "_" + ReplyNum, 0);
+              boolean add = true;
+              if (!TextUtils.isEmpty(topic.getReplyCounts())) {
+                add = Integer.valueOf(topic.getReplyCounts()) >= replyNum;
+              }
+              if (add) {
+                TopicListContent.addBoardTopic(topic, mBoard.getBoardEngName());
+                mRecyclerView.getAdapter().notifyItemInserted(TopicListContent.BOARD_TOPICS.size() - 1);
+              }
             }
           }
 
